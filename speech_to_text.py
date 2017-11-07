@@ -3,7 +3,6 @@ import websockets
 import json
 import requests
 import pyaudio
-import time
 
 
 class SpeechToText:
@@ -21,13 +20,23 @@ class SpeechToText:
 
         self.p = pyaudio.PyAudio()
 
+        # Opens the stream to start recording from the default microphone
+        self.stream = self.p.open(format=self.FORMAT,
+                                  channels=self.CHANNELS,
+                                  rate=self.RATE,
+                                  input=True,
+                                  output=True,
+                                  frames_per_buffer=self.CHUNK)
+
+        self.record_voice()
+
         # This is the language model to use to transcribe the audio
         self.model = "en-US_BroadbandModel"
 
         # These are the urls we will be using to communicate with Watson
         self.default_url = "https://stream.watsonplatform.net/speech-to-text/api"
         self.token_url = "https://stream.watsonplatform.net/authorization/api/v1/token?" \
-                    "url=https://stream.watsonplatform.net/speech-to-text/api"
+                         "url=https://stream.watsonplatform.net/speech-to-text/api"
         self.url = "wss://stream.watsonplatform.net/speech-to-text/api/v1/recognize?model=en-US_BroadbandModel"
 
         # Params to use for Watson API
@@ -35,9 +44,28 @@ class SpeechToText:
             "word_confidence": True,
             "content_type": "audio/l16;rate=16000;channels=2",
             "action": "start",
-            "interim_results": True
+            "interim_results": False
         }
 
+    def record_voice(self):
+
+        # Starts recording of microphone
+        print("* READY *")
+
+        frames = []
+
+        for i in range(0, int(self.RATE / self.CHUNK * 5)):
+            data = self.stream.read(self.CHUNK)
+            frames.append(data)
+
+        print("* FINISH *")
+
+        # Stop the stream and terminate the recording
+        self.stream.stop_stream()
+        self.stream.close()
+        self.p.terminate()
+
+        self.audio_feed = b''.join(frames)
 
     def get_auth(self):
 
@@ -52,37 +80,13 @@ class SpeechToText:
 
         print("Authorization was requested")
 
-    async def send_audio(self, ws):
+    async def send_audio(self, audio, ws):
+        if not audio:
+            await ws.send(json.dumps({'action': 'stop'}))
 
-        # Opens the stream to start recording from the default microphone
-        self.stream = self.p.open(format=self.FORMAT,
-                                  channels=self.CHANNELS,
-                                  rate=self.RATE,
-                                  input=True,
-                                  output=True,
-                                  frames_per_buffer=self.CHUNK)
-        # Starts recording of microphone
-        print("* READY *")
+        await ws.send(audio)
 
-        start = time.time()
-        while True:
-            try:
-                print(".")
-                data = self.stream.read(self.CHUNK)
-                await ws.send(data)
-                if time.time() - start > 5:
-                    await ws.send(json.dumps({'action': 'stop'}))
-                    return False
-            except Exception as e:
-                print(e)
-                return False
-
-        # Stop the stream and terminate the recording
-        self.stream.stop_stream()
-        self.stream.close()
-        self.p.terminate()
-
-    async def speech_to_text(self, auth_token):
+    async def speech_to_text(self, audio, auth_token):
         self.auth_token = auth_token
         self.token_header = {"X-Watson-Authorization-Token": self.auth_token}
         if self.auth_token is None:
@@ -92,7 +96,7 @@ class SpeechToText:
             send = await conn.send(json.dumps(self.params))
             rec = await conn.recv()
             print(rec)
-            asyncio.ensure_future(self.send_audio(conn))
+            asyncio.ensure_future(self.send_audio(audio, conn))
 
             # Keeps receiving transcript until we have the final transcript
             while True:
@@ -100,14 +104,14 @@ class SpeechToText:
                     rec = await conn.recv()
                     parsed = json.loads(rec)
                     self.transcript = parsed["results"][0]["alternatives"][0]["transcript"]
-                    #print(transcript)
+                    print(self.transcript)
                     # print(parsed)
                     if "results" in parsed:
                         if len(parsed["results"]) > 0:
                             if "final" in parsed["results"][0]:
                                 if parsed["results"][0]["final"]:
-                                    # conn.close()
-                                    # return False
+                                    conn.close()
+                                    return False
                                     pass
                 except KeyError:
                     conn.close()
@@ -116,9 +120,9 @@ class SpeechToText:
     # Starts the application loop
     def run(self, auth_token):
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.speech_to_text(auth_token))
-        #loop.close()
+        loop.run_until_complete(self.speech_to_text(self.audio_feed, auth_token))
         return self.transcript, self.auth_token
+
 
 if __name__ == "__main__":
     app = SpeechToText()
