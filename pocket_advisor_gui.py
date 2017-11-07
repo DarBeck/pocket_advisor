@@ -52,6 +52,7 @@ class PocketAdvisorGUI(QDialog):
 
         self.first_message = True
         self.con_id = None
+        self.auth_token = None
         self.greeting()
         # Connections
         self.message_box.returnPressed.connect(self.send_message)
@@ -85,10 +86,13 @@ class PocketAdvisorGUI(QDialog):
 
     def send_voice(self):
         try:
-            result = SpeechToText().run()
-            self.browser.append("You: " + result)
-            print(result)
-            self.receive_message(result)
+            result = SpeechToText().run(self.auth_token)
+            output = result[0]
+            self.auth_token = result[1]
+            print(self.auth_token)
+            self.browser.append("You: " + output)
+            print(output)
+            self.receive_message(output)
         except Exception as e:
             print(e)
 

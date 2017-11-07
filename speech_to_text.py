@@ -4,7 +4,6 @@ import json
 import requests
 import pyaudio
 import time
-from watson_developer_cloud import ConversationV1
 
 
 class SpeechToText:
@@ -14,6 +13,9 @@ class SpeechToText:
         self.FORMAT = pyaudio.paInt16
         self.CHANNELS = 2
         self.RATE = 16000
+
+        # Initialize auth_token
+        self.auth_token = None
 
         self.transcript = "No audio was received"
 
@@ -28,15 +30,6 @@ class SpeechToText:
                     "url=https://stream.watsonplatform.net/speech-to-text/api"
         self.url = "wss://stream.watsonplatform.net/speech-to-text/api/v1/recognize?model=en-US_BroadbandModel"
 
-        # BlueMix app credentials
-        username = "fd87dd64-847e-4e0b-b511-e22d07f898a4"
-        password = "dPEw4c62KirQ"
-
-        # Send a request to get an authorization key
-        r = requests.get(self.token_url, auth=(username, password))
-        auth_token = r.text
-        self.token_header = {"X-Watson-Authorization-Token": auth_token}
-
         # Params to use for Watson API
         self.params = {
             "word_confidence": True,
@@ -45,16 +38,29 @@ class SpeechToText:
             "interim_results": True
         }
 
-        # Opens the stream to start recording from the default microphone
-        self.stream = self.p.open(format=self.FORMAT,
-                             channels=self.CHANNELS,
-                             rate=self.RATE,
-                             input=True,
-                             output=True,
-                             frames_per_buffer=self.CHUNK)
 
+    def get_auth(self):
+
+        # BlueMix app credentials
+        username = "fd87dd64-847e-4e0b-b511-e22d07f898a4"
+        password = "dPEw4c62KirQ"
+
+        # Send a request to get an authorization key
+        r = requests.get(self.token_url, auth=(username, password))
+        self.auth_token = r.text
+        self.token_header = {"X-Watson-Authorization-Token": self.auth_token}
+
+        print("Authorization was requested")
 
     async def send_audio(self, ws):
+
+        # Opens the stream to start recording from the default microphone
+        self.stream = self.p.open(format=self.FORMAT,
+                                  channels=self.CHANNELS,
+                                  rate=self.RATE,
+                                  input=True,
+                                  output=True,
+                                  frames_per_buffer=self.CHUNK)
         # Starts recording of microphone
         print("* READY *")
 
@@ -64,7 +70,7 @@ class SpeechToText:
                 print(".")
                 data = self.stream.read(self.CHUNK)
                 await ws.send(data)
-                if time.time() - start > 10:
+                if time.time() - start > 5:
                     await ws.send(json.dumps({'action': 'stop'}))
                     return False
             except Exception as e:
@@ -76,7 +82,11 @@ class SpeechToText:
         self.stream.close()
         self.p.terminate()
 
-    async def speech_to_text(self):
+    async def speech_to_text(self, auth_token):
+        self.auth_token = auth_token
+        self.token_header = {"X-Watson-Authorization-Token": self.auth_token}
+        if self.auth_token is None:
+            self.get_auth()
         async with websockets.connect(self.url, extra_headers=self.token_header) as conn:
             # Send request to watson and waits for the listening response
             send = await conn.send(json.dumps(self.params))
@@ -104,11 +114,11 @@ class SpeechToText:
                     return False
 
     # Starts the application loop
-    def run(self):
+    def run(self, auth_token):
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.speech_to_text())
+        loop.run_until_complete(self.speech_to_text(auth_token))
         #loop.close()
-        return self.transcript
+        return self.transcript, self.auth_token
 
 if __name__ == "__main__":
     app = SpeechToText()
