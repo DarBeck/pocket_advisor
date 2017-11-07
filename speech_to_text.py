@@ -53,6 +53,7 @@ class SpeechToText:
                              output=True,
                              frames_per_buffer=self.CHUNK)
 
+
     async def send_audio(self, ws):
         # Starts recording of microphone
         print("* READY *")

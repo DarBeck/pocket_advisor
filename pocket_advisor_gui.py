@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import *
 from chat_bot import ChatBot
-from pocket_advisor import SpeechToText
+from speech_to_text import SpeechToText
 from text_to_speech import TextToSpeech
 import asyncio
 from PyQt5.QtCore import *
