@@ -85,6 +85,7 @@ class SpeechToText:
             await ws.send(json.dumps({'action': 'stop'}))
 
         await ws.send(audio)
+        await ws.send(json.dumps({'action': 'stop'}))
 
     async def speech_to_text(self, audio, auth_token):
         self.auth_token = auth_token
