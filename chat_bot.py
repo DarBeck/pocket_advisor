@@ -10,12 +10,12 @@ class ChatBot:
 
     def send_message(self, first, con_id=None):
             conversation = ConversationV1(
-                username='ff965525-5f51-48dd-9fdf-fafa8acf3afb',
-                password='IP0NZNY4cmHx',
+                username='<username>',
+                password='<pasword>',
                 version='2017-05-26')   # Latest version of Watson Conversation
 
             # replace with your own workspace_id
-            workspace_id = 'cd8dbc17-f6fa-418a-ac91-2962c66f0d5e'
+            workspace_id = '<workspaceid>'
 
             if first:
                 response = conversation.message(workspace_id=workspace_id, message_input={
