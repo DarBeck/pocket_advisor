@@ -70,8 +70,8 @@ class SpeechToText:
     def get_auth(self):
 
         # BlueMix app credentials
-        username = "fd87dd64-847e-4e0b-b511-e22d07f898a4"
-        password = "dPEw4c62KirQ"
+        username = "<username>"
+        password = "<password>"
 
         # Send a request to get an authorization key
         r = requests.get(self.token_url, auth=(username, password))
