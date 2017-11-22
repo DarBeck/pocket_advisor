@@ -10,8 +10,8 @@ class TextToSpeech:
 
     def get_voice(self):
         text_to_speech = TextToSpeechV1(
-            username='ef31c2e7-1d08-4d39-bbf3-3884e215c5f1',
-            password='e5VM3CpwmsH3',
+            username='<username>',
+            password='<password>',
             x_watson_learning_opt_out=True)  # Optional flag
 
         with open("output.wav",
